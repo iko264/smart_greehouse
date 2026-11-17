@@ -1,0 +1,7 @@
+.env
+*.exe
+smart-greenhouse
+storage/logs/*.log
+tmp/
+.idea/
+.vscode/

@@ -1,0 +1,67 @@
+<div class="mb-4">
+  <h1 class="h4 mb-0">Kontrol Aktuator</h1>
+  <div class="text-muted small">
+    Perintah dikirim ke ESP32 lewat MQTT. Pilih <b>Otomatis</b> agar aktuator dikendalikan aturan di menu Otomasi.
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  {{range .actuators}}
+  <div class="col-md-6 col-xl-4">
+    <div class="card h-100">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start mb-3">
+          <div class="d-flex align-items-center gap-3">
+            <i class="bi {{.Icon}} display-6 text-success"></i>
+            <div>
+              <div class="fw-semibold fs-5">{{.Name}}</div>
+              <span class="badge actuator-state {{if .State}}text-bg-success{{else}}text-bg-secondary{{end}}" data-code="{{.Code}}">{{if .State}}ON{{else}}OFF{{end}}</span>
+            </div>
+          </div>
+          <div class="form-check form-switch fs-3 mb-0">
+            <input class="form-check-input actuator-switch" type="checkbox" role="switch"
+                   data-code="{{.Code}}" {{if .State}}checked{{end}} {{if eq .Mode "auto"}}disabled{{end}}>
+          </div>
+        </div>
+
+        <div class="small text-muted mb-2">Mode kontrol</div>
+        <div class="btn-group w-100" role="group">
+          <button type="button" class="btn btn-outline-success mode-btn {{if eq .Mode "manual"}}active{{end}}" data-code="{{.Code}}" data-mode="manual">
+            <i class="bi bi-hand-index me-1"></i>Manual
+          </button>
+          <button type="button" class="btn btn-outline-success mode-btn {{if eq .Mode "auto"}}active{{end}}" data-code="{{.Code}}" data-mode="auto">
+            <i class="bi bi-cpu me-1"></i>Otomatis
+          </button>
+        </div>
+      </div>
+      <div class="card-footer bg-white small text-muted">
+        Topic: <code>{{.Code}}</code> &middot; Diperbarui {{formatTime .UpdatedAt}}
+      </div>
+    </div>
+  </div>
+  {{end}}
+</div>
+
+<div class="card">
+  <div class="card-header bg-white fw-semibold d-flex justify-content-between">
+    <span>Log Terbaru</span>
+    <a href="/history?tab=actuator" class="small text-decoration-none">Lihat semua</a>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-sm align-middle mb-0">
+      <thead class="table-light"><tr><th>Waktu</th><th>Aktuator</th><th>Status</th><th>Sumber</th></tr></thead>
+      <tbody>
+        {{range .logs}}
+        <tr>
+          <td>{{formatTime .CreatedAt}}</td>
+          <td>{{.Actuator.Name}}</td>
+          <td><span class="badge {{if .State}}text-bg-success{{else}}text-bg-secondary{{end}}">{{if .State}}ON{{else}}OFF{{end}}</span></td>
+          <td>{{.Source}}</td>
+        </tr>
+        {{else}}
+        <tr><td colspan="4" class="text-center text-muted py-3">Belum ada aktivitas.</td></tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+</div>

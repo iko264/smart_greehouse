@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{.csrfToken}}">
+  <title>{{.title}} · {{.appName}}</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="/css/app.css" rel="stylesheet">
+</head>
+<body>
+{{if .userName}}
+  {{template "partials/navbar" .}}
+
+  <div class="app-shell">
+    {{template "partials/sidebar" .}}
+
+    <main class="app-main">
+      {{if .success}}
+      <div class="alert alert-success alert-dismissible fade show" role="alert">
+        {{.success}}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Tutup"></button>
+      </div>
+      {{end}}
+      {{if .error}}
+      <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        {{.error}}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Tutup"></button>
+      </div>
+      {{end}}
+
+      {{embed}}
+    </main>
+  </div>
+{{else}}
+  {{embed}}
+{{end}}
+
+  <div class="toast-container position-fixed bottom-0 end-0 p-3" id="toast-container"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>

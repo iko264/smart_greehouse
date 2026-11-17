@@ -1,0 +1,16 @@
+<aside class="offcanvas-lg offcanvas-start app-sidebar" tabindex="-1" id="sidebar" aria-labelledby="sidebarLabel">
+  <div class="offcanvas-header border-bottom">
+    <h6 class="offcanvas-title" id="sidebarLabel">Menu</h6>
+    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#sidebar" aria-label="Tutup"></button>
+  </div>
+
+  <div class="offcanvas-body">
+    <nav class="nav nav-pills flex-column gap-1 w-100">
+      <a class="nav-link {{active .currentPath "/"}}" href="/"><i class="bi bi-speedometer2 me-2"></i>Dashboard</a>
+      <a class="nav-link {{active .currentPath "/monitoring"}}" href="/monitoring"><i class="bi bi-graph-up me-2"></i>Monitoring</a>
+      <a class="nav-link {{active .currentPath "/actuators"}}" href="/actuators"><i class="bi bi-toggles me-2"></i>Kontrol Aktuator</a>
+      <a class="nav-link {{active .currentPath "/automation"}}" href="/automation"><i class="bi bi-gear-wide-connected me-2"></i>Otomasi</a>
+      <a class="nav-link {{active .currentPath "/history"}}" href="/history"><i class="bi bi-clock-history me-2"></i>Riwayat</a>
+    </nav>
+  </div>
+</aside>

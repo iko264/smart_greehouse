@@ -1,0 +1,58 @@
+<div class="mb-4">
+  <h1 class="h4 mb-0">Riwayat</h1>
+  <div class="text-muted small">{{.total}} data tersimpan.</div>
+</div>
+
+<ul class="nav nav-tabs mb-3">
+  <li class="nav-item"><a class="nav-link {{if eq .tab "sensor"}}active{{end}}" href="/history?tab=sensor">Data Sensor</a></li>
+  <li class="nav-item"><a class="nav-link {{if eq .tab "actuator"}}active{{end}}" href="/history?tab=actuator">Log Aktuator</a></li>
+</ul>
+
+<div class="card">
+  <div class="table-responsive">
+    {{if eq .tab "sensor"}}
+    <table class="table table-sm table-striped align-middle mb-0">
+      <thead class="table-light">
+        <tr><th>Waktu</th><th class="text-end">Suhu (°C)</th><th class="text-end">Kelembapan Udara (%)</th><th class="text-end">Kelembapan Tanah (%)</th><th class="text-end">Cahaya (lux)</th></tr>
+      </thead>
+      <tbody>
+        {{range .readings}}
+        <tr>
+          <td>{{formatTime .CreatedAt}}</td>
+          <td class="text-end">{{formatValue "temperature" .Temperature}}</td>
+          <td class="text-end">{{formatValue "humidity" .Humidity}}</td>
+          <td class="text-end">{{formatValue "soil" .Soil}}</td>
+          <td class="text-end">{{formatValue "light" .Light}}</td>
+        </tr>
+        {{else}}
+        <tr><td colspan="5" class="text-center text-muted py-4">Belum ada data sensor.</td></tr>
+        {{end}}
+      </tbody>
+    </table>
+    {{else}}
+    <table class="table table-sm table-striped align-middle mb-0">
+      <thead class="table-light"><tr><th>Waktu</th><th>Aktuator</th><th>Status</th><th>Sumber</th></tr></thead>
+      <tbody>
+        {{range .logs}}
+        <tr>
+          <td>{{formatTime .CreatedAt}}</td>
+          <td>{{.Actuator.Name}}</td>
+          <td><span class="badge {{if .State}}text-bg-success{{else}}text-bg-secondary{{end}}">{{if .State}}ON{{else}}OFF{{end}}</span></td>
+          <td>{{.Source}}</td>
+        </tr>
+        {{else}}
+        <tr><td colspan="4" class="text-center text-muted py-4">Belum ada log aktuator.</td></tr>
+        {{end}}
+      </tbody>
+    </table>
+    {{end}}
+  </div>
+
+  <div class="card-footer bg-white d-flex justify-content-between align-items-center">
+    <span class="small text-muted">Halaman {{.page}} dari {{.totalPages}}</span>
+    <div class="btn-group">
+      {{if .hasPrev}}<a class="btn btn-sm btn-outline-secondary" href="/history?tab={{.tab}}&page={{.prev}}">&laquo; Sebelumnya</a>{{else}}<button class="btn btn-sm btn-outline-secondary" disabled>&laquo; Sebelumnya</button>{{end}}
+      {{if .hasNext}}<a class="btn btn-sm btn-outline-secondary" href="/history?tab={{.tab}}&page={{.next}}">Berikutnya &raquo;</a>{{else}}<button class="btn btn-sm btn-outline-secondary" disabled>Berikutnya &raquo;</button>{{end}}
+    </div>
+  </div>
+</div>

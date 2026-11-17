@@ -1,18 +1,15 @@
-
 package main
 
 import (
 	"log"
+	_ "time/tzdata"
 
-	"github.com/gofiber/fiber/v3"
+	"smart-greenhouse/bootstrap"
+	"smart-greenhouse/config"
 )
 
 func main() {
-	app := fiber.New()
+	app := bootstrap.NewApp()
 
-	app.Get("/", func(c fiber.Ctx) error {
-		return c.SendString("Smart Greenhouse Server Berjalan!")
-	})
-
-	log.Fatal(app.Listen(":3000"))
+	log.Fatal(app.Listen(":" + config.Env("APP_PORT", "3000")))
 }

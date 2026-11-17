@@ -1,0 +1,36 @@
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+  <div>
+    <h1 class="h4 mb-0">Monitoring</h1>
+    <div class="text-muted small">Grafik tiap sensor, ter-update otomatis saat data baru masuk.</div>
+  </div>
+  <div class="d-flex align-items-center gap-2">
+    <label for="range-select" class="form-label mb-0 small text-muted">Tampilkan</label>
+    <select id="range-select" class="form-select form-select-sm w-auto">
+      <option value="30">30 data terakhir</option>
+      <option value="60">60 data terakhir</option>
+      <option value="120">120 data terakhir</option>
+      <option value="300">300 data terakhir</option>
+    </select>
+  </div>
+</div>
+
+<div class="row g-3">
+  {{range .sensors}}
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <span class="fw-semibold"><i class="bi {{.Icon}} text-{{.Color}} me-2"></i>{{.Label}}</span>
+        <span class="fs-5 fw-semibold"><span data-sensor-value="{{.Code}}">--</span> <small class="text-muted">{{.Unit}}</small></span>
+      </div>
+      <div class="card-body">
+        <div class="chart-wrap chart-wrap-sm">
+          <canvas data-keys="{{.Code}}"></canvas>
+        </div>
+      </div>
+      <div class="card-footer bg-white small text-muted" data-stats="{{.Code}}">
+        Terendah <b data-k="min">-</b> &middot; Rata-rata <b data-k="avg">-</b> &middot; Tertinggi <b data-k="max">-</b> {{.Unit}}
+      </div>
+    </div>
+  </div>
+  {{end}}
+</div>

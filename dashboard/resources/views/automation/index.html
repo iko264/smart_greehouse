@@ -1,0 +1,122 @@
+<div class="mb-4">
+  <h1 class="h4 mb-0">Otomasi</h1>
+  <div class="text-muted small">
+    Aturan dengan <b>histeresis</b> (dua batas) supaya aktuator tidak nyala-mati terus di sekitar satu nilai.
+    Aturan hanya bekerja jika aktuatornya diset ke mode <b>Otomatis</b>.
+  </div>
+</div>
+
+<div class="row g-3">
+  <!-- Daftar aturan -->
+  <div class="col-lg-7">
+    <div class="card h-100">
+      <div class="card-header bg-white fw-semibold">Daftar Aturan</div>
+      <div class="table-responsive">
+        <table class="table align-middle mb-0">
+          <thead class="table-light"><tr><th>Aturan</th><th>Aktuator</th><th>Status</th><th class="text-end">Aksi</th></tr></thead>
+          <tbody>
+            {{range .rules}}
+            <tr>
+              <td>
+                <div class="fw-medium">{{.Name}}</div>
+                <div class="small text-muted">{{ruleText .}}</div>
+              </td>
+              <td>
+                {{.Actuator.Name}}
+                <div><span class="badge text-bg-light border">{{if eq .Actuator.Mode "auto"}}Otomatis{{else}}Manual{{end}}</span></div>
+              </td>
+              <td>
+                <span class="badge {{if .IsActive}}text-bg-success{{else}}text-bg-secondary{{end}}">{{if .IsActive}}Aktif{{else}}Nonaktif{{end}}</span>
+              </td>
+              <td class="text-end text-nowrap">
+                <form method="post" action="/automation/{{.ID}}/toggle" class="d-inline">
+                  <input type="hidden" name="_token" value="{{$.csrfToken}}">
+                  <button class="btn btn-sm btn-outline-secondary" type="submit">{{if .IsActive}}Nonaktifkan{{else}}Aktifkan{{end}}</button>
+                </form>
+                <form method="post" action="/automation/{{.ID}}/delete" class="d-inline" onsubmit="return confirm('Hapus aturan ini?')">
+                  <input type="hidden" name="_token" value="{{$.csrfToken}}">
+                  <button class="btn btn-sm btn-outline-danger" type="submit" aria-label="Hapus"><i class="bi bi-trash"></i></button>
+                </form>
+              </td>
+            </tr>
+            {{else}}
+            <tr><td colspan="4" class="text-center text-muted py-4">Belum ada aturan.</td></tr>
+            {{end}}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Form tambah aturan -->
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-header bg-white fw-semibold">Tambah Aturan</div>
+      <div class="card-body">
+        <form method="post" action="/automation" novalidate>
+          <input type="hidden" name="_token" value="{{.csrfToken}}">
+
+          <div class="mb-3">
+            <label for="name" class="form-label">Nama aturan</label>
+            <input type="text" id="name" name="name" value="{{.old.Name}}" placeholder="Kipas saat panas"
+                   class="form-control {{if .errors.name}}is-invalid{{end}}">
+            {{if .errors.name}}<div class="invalid-feedback">{{.errors.name}}</div>{{end}}
+          </div>
+
+          <div class="mb-3">
+            <label for="actuator_id" class="form-label">Aktuator</label>
+            <select id="actuator_id" name="actuator_id" class="form-select {{if .errors.actuator_id}}is-invalid{{end}}">
+              <option value="">Pilih aktuator</option>
+              {{range .actuators}}
+              <option value="{{.ID}}" {{if eq $.old.ActuatorID .ID}}selected{{end}}>{{.Name}}</option>
+              {{end}}
+            </select>
+            {{if .errors.actuator_id}}<div class="invalid-feedback">{{.errors.actuator_id}}</div>{{end}}
+          </div>
+
+          <div class="mb-3">
+            <label for="sensor" class="form-label">Sensor</label>
+            <select id="sensor" name="sensor" class="form-select {{if .errors.sensor}}is-invalid{{end}}">
+              <option value="">Pilih sensor</option>
+              {{range .sensors}}
+              <option value="{{.Code}}" {{if eq $.old.Sensor .Code}}selected{{end}}>{{.Label}} ({{.Unit}})</option>
+              {{end}}
+            </select>
+            {{if .errors.sensor}}<div class="invalid-feedback">{{.errors.sensor}}</div>{{end}}
+          </div>
+
+          <div class="mb-3">
+            <label for="direction" class="form-label">Kondisi</label>
+            <select id="direction" name="direction" class="form-select {{if .errors.direction}}is-invalid{{end}}">
+              <option value="above" {{if eq .old.Direction "above"}}selected{{end}}>Nyala jika nilai TINGGI (contoh: suhu panas → kipas)</option>
+              <option value="below" {{if eq .old.Direction "below"}}selected{{end}}>Nyala jika nilai RENDAH (contoh: tanah kering → pompa)</option>
+            </select>
+            {{if .errors.direction}}<div class="invalid-feedback">{{.errors.direction}}</div>{{end}}
+          </div>
+
+          <div class="row g-3 mb-2">
+            <div class="col-6">
+              <label for="on_value" class="form-label">Batas nyala</label>
+              <input type="number" step="any" id="on_value" name="on_value" value="{{if .old.Sensor}}{{.old.OnValue}}{{end}}" required
+                     class="form-control {{if .errors.on_value}}is-invalid{{end}}">
+            </div>
+            <div class="col-6">
+              <label for="off_value" class="form-label">Batas mati</label>
+              <input type="number" step="any" id="off_value" name="off_value" value="{{if .old.Sensor}}{{.old.OffValue}}{{end}}" required
+                     class="form-control {{if .errors.off_value}}is-invalid{{end}}">
+            </div>
+            {{if .errors.on_value}}<div class="col-12"><div class="text-danger small">{{.errors.on_value}}</div></div>{{end}}
+            {{if .errors.off_value}}<div class="col-12"><div class="text-danger small">{{.errors.off_value}}</div></div>{{end}}
+          </div>
+
+          <div class="form-text mb-3">
+            Contoh kipas: sensor Suhu, kondisi TINGGI, nyala 30, mati 28.<br>
+            Contoh pompa: sensor Tanah, kondisi RENDAH, nyala 40, mati 60.
+          </div>
+
+          <button type="submit" class="btn btn-success w-100">Simpan Aturan</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
