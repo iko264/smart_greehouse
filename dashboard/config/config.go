@@ -36,3 +36,12 @@ func EnvInt(key string, fallback int) int {
 	}
 	return n
 }
+
+// EnvFloat sama seperti Env, tapi hasilnya angka desimal.
+func EnvFloat(key string, fallback float64) float64 {
+	n, err := strconv.ParseFloat(Env(key, ""), 64)
+	if err != nil {
+		return fallback
+	}
+	return n
+}

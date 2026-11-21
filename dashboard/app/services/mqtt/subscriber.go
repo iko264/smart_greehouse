@@ -74,8 +74,15 @@ func handleSensor(_ paho.Client, msg paho.Message) {
 		}
 	}
 
-	// 2. Kirim ke semua browser lewat WebSocket
-	websocket.H.Broadcast("sensor", reading)
+	// 2. Olah data (moving average + z-score), lalu kirim ke semua browser lewat WebSocket
+	event := analyze(reading)
+	websocket.H.Broadcast("sensor", event)
+
+	for code, isAnomaly := range event.Anomaly {
+		if isAnomaly {
+			log.Printf("Anomali %s: nilai=%.1f, z=%.2f", code, reading.Value(code), event.Z[code])
+		}
+	}
 
 	// 3. Jalankan otomasi. Pakai goroutine karena callback MQTT sebaiknya tidak menunggu proses lain.
 	if OnSensor != nil {

@@ -29,6 +29,7 @@ func IsConnected() bool {
 // Connect menyambungkan ke broker. Kalau broker mati, program tetap jalan dan mencoba lagi otomatis.
 func Connect() {
 	prefix = strings.Trim(config.Env("MQTT_TOPIC_PREFIX", "greenhouse/demo"), "/")
+	loadHistory() // isi jendela moving average / z-score dari database
 
 	opts := paho.NewClientOptions().
 		AddBroker(config.Env("MQTT_BROKER", "tcp://broker.hivemq.com:1883")).

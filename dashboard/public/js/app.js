@@ -94,33 +94,63 @@
       const keys = canvas.dataset.keys.split(',');
       const single = keys.length === 1;
 
+      const datasets = keys.map((key) => ({
+        label: `${SENSORS[key].label} (${SENSORS[key].unit})`,
+        data: [],
+        borderColor: SENSORS[key].color,
+        backgroundColor: `${SENSORS[key].color}22`,
+        borderWidth: 2,
+        pointRadius: 0,
+        tension: 0.35,
+        fill: single,
+      }));
+
+      if (single) {
+        // Titik anomali (|z| >= ambang) diberi bulatan merah
+        datasets[0].pointBackgroundColor = '#dc3545';
+        datasets[0].pointRadius = (ctx) => (ctx.chart.$anomaly?.[ctx.dataIndex] ? 5 : 0);
+
+        // Garis putus-putus = moving average
+        datasets.push({
+          label: 'Moving average',
+          data: [],
+          borderColor: '#6c757d',
+          borderDash: [6, 4],
+          borderWidth: 2,
+          pointRadius: 0,
+          tension: 0.35,
+          fill: false,
+        });
+      }
+
       const chart = new Chart(canvas, {
         type: 'line',
-        data: {
-          labels: [],
-          datasets: keys.map((key) => ({
-            label: `${SENSORS[key].label} (${SENSORS[key].unit})`,
-            data: [],
-            borderColor: SENSORS[key].color,
-            backgroundColor: `${SENSORS[key].color}22`,
-            borderWidth: 2,
-            pointRadius: 0,
-            tension: 0.35,
-            fill: single,
-          })),
-        },
+        data: { labels: [], datasets },
         options: {
           responsive: true,
           maintainAspectRatio: false,
           animation: false,
           interaction: { mode: 'index', intersect: false },
-          plugins: { legend: { display: !single, position: 'bottom' } },
+          plugins: { legend: { display: true, position: 'bottom' } },
           scales: { x: { grid: { display: false }, ticks: { maxTicksLimit: 6 } } },
         },
       });
+      chart.$anomaly = []; // status anomali per titik (sejajar dengan labels)
 
       charts.push({ chart, keys });
     });
+  }
+
+  // Mengisi grafik dari daftar data (hasil /api/sensors/history)
+  function fillChart({ chart, keys }, rows) {
+    chart.data.labels = rows.map((r) => timeLabel(r.created_at));
+    keys.forEach((key, i) => (chart.data.datasets[i].data = rows.map((r) => r[key])));
+
+    if (keys.length === 1) {
+      chart.data.datasets[1].data = rows.map((r) => r.ma[keys[0]]);
+      chart.$anomaly = rows.map((r) => r.anomaly[keys[0]]);
+    }
+    chart.update();
   }
 
   async function loadHistory() {
@@ -130,12 +160,9 @@
       const res = await fetch(`/api/sensors/history?limit=${maxPoints}`, { credentials: 'same-origin' });
       const { data } = await res.json();
 
-      charts.forEach(({ chart, keys }) => {
-        chart.data.labels = data.map((r) => timeLabel(r.created_at));
-        chart.data.datasets.forEach((ds, i) => (ds.data = data.map((r) => r[keys[i]])));
-        chart.update();
-      });
+      charts.forEach((c) => fillChart(c, data));
       updateStats();
+      if (data.length > 0) renderAnalysis(data[data.length - 1]);
     } catch (err) {
       toast('Gagal memuat riwayat grafik', 'danger');
     }
@@ -144,15 +171,32 @@
   function pushReading(reading) {
     charts.forEach(({ chart, keys }) => {
       chart.data.labels.push(timeLabel(reading.created_at));
-      chart.data.datasets.forEach((ds, i) => ds.data.push(reading[keys[i]]));
+      keys.forEach((key, i) => chart.data.datasets[i].data.push(reading[key]));
+
+      if (keys.length === 1) {
+        chart.data.datasets[1].data.push(reading.ma[keys[0]]);
+        chart.$anomaly.push(reading.anomaly[keys[0]]);
+      }
 
       while (chart.data.labels.length > maxPoints) {
         chart.data.labels.shift();
         chart.data.datasets.forEach((ds) => ds.data.shift());
+        chart.$anomaly.shift();
       }
       chart.update();
     });
     updateStats();
+  }
+
+  // Menampilkan "MA ... · z ... [Anomali]" di kartu sensor
+  function renderAnalysis(r) {
+    Object.keys(SENSORS).forEach((code) => {
+      $$(`[data-analysis="${code}"]`).forEach((box) => {
+        $('[data-k="ma"]', box).textContent = fmt(code, r.ma[code]);
+        $('[data-k="z"]', box).textContent = Number(r.z[code]).toFixed(2);
+        $('[data-k="flag"]', box).classList.toggle('d-none', !r.anomaly[code]);
+      });
+    });
   }
 
   // Terendah / rata-rata / tertinggi dari data yang sedang tampil di grafik (halaman Monitoring)
@@ -179,6 +223,7 @@
       $$(`[data-sensor-value="${code}"]`).forEach((el) => (el.textContent = fmt(code, reading[code])));
     });
     setLastSeen(reading.created_at);
+    if (reading.ma) renderAnalysis(reading);
     pushReading(reading);
   }
 

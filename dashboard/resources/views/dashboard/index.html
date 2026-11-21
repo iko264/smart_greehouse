@@ -24,6 +24,10 @@
           <span class="sensor-value" data-sensor-value="{{.Code}}">{{if $.hasData}}{{formatValue .Code ($.latest.Value .Code)}}{{else}}--{{end}}</span>
           <span class="text-muted">{{.Unit}}</span>
         </div>
+        <div class="small text-muted mt-1" data-analysis="{{.Code}}">
+          MA <b data-k="ma">-</b> &middot; z <b data-k="z">-</b>
+          <span class="badge text-bg-danger d-none" data-k="flag">Anomali</span>
+        </div>
       </div>
     </div>
   </div>

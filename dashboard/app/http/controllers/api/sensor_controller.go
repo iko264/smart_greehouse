@@ -7,6 +7,7 @@ import (
 
 	"smart-greenhouse/app/models"
 	"smart-greenhouse/app/services/mqtt"
+	"smart-greenhouse/app/support"
 	"smart-greenhouse/config"
 )
 
@@ -25,7 +26,15 @@ func (s *SensorController) Latest(c fiber.Ctx) error {
 	return c.JSON(fiber.Map{"data": latest})
 }
 
-// History: GET /api/sensors/history?limit=30  (urut dari yang paling lama, siap untuk grafik)
+// historyPoint = satu titik grafik: data sensor + moving average + z-score.
+type historyPoint struct {
+	models.SensorReading
+	MA      map[string]float64 `json:"ma"`
+	Z       map[string]float64 `json:"z"`
+	Anomaly map[string]bool    `json:"anomaly"`
+}
+
+// History: GET /api/sensors/history?limit=30
 func (s *SensorController) History(c fiber.Ctx) error {
 	limit := fiber.Query[int](c, "limit", 30)
 	if limit < 1 {
@@ -35,11 +44,38 @@ func (s *SensorController) History(c fiber.Ctx) error {
 		limit = 500
 	}
 
-	var readings []models.SensorReading
-	config.DB.Order("id desc").Limit(limit).Find(&readings)
-	slices.Reverse(readings)
+	settings := support.LoadStatsSettings()
 
-	return c.JSON(fiber.Map{"data": readings})
+	// Ambil data tambahan di depan sebagai "pemanasan" jendela z-score titik pertama.
+	var rows []models.SensorReading
+	config.DB.Order("id desc").Limit(limit + settings.ZWindow).Find(&rows)
+	slices.Reverse(rows)
+
+	points := make([]historyPoint, 0, len(rows))
+	for i, r := range rows {
+		p := historyPoint{
+			SensorReading: r,
+			MA:            map[string]float64{},
+			Z:             map[string]float64{},
+			Anomaly:       map[string]bool{},
+		}
+
+		for _, sensor := range support.Sensors {
+			// riwayat = nilai-nilai sebelum baris ini
+			var hist []float64
+			for _, prev := range rows[max(0, i-settings.ZWindow):i] {
+				hist = append(hist, prev.Value(sensor.Code))
+			}
+			p.MA[sensor.Code], p.Z[sensor.Code], p.Anomaly[sensor.Code] =
+				settings.Analyze(hist, r.Value(sensor.Code))
+		}
+		points = append(points, p)
+	}
+
+	if len(points) > limit {
+		points = points[len(points)-limit:]
+	}
+	return c.JSON(fiber.Map{"data": points})
 }
 
 // Status: GET /api/status

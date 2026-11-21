@@ -29,6 +29,10 @@
       </div>
       <div class="card-footer bg-white small text-muted" data-stats="{{.Code}}">
         Terendah <b data-k="min">-</b> &middot; Rata-rata <b data-k="avg">-</b> &middot; Tertinggi <b data-k="max">-</b> {{.Unit}}
+        <div class="small text-muted mt-1" data-analysis="{{.Code}}">
+          MA <b data-k="ma">-</b> &middot; z <b data-k="z">-</b>
+          <span class="badge text-bg-danger d-none" data-k="flag">Anomali</span>
+        </div>
       </div>
     </div>
   </div>
