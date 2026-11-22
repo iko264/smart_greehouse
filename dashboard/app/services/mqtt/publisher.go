@@ -145,12 +145,8 @@ func SetDailyStatus(lightSeconds uint32, waterCount int) {
 	dailyStatus.mu.Lock()
 	defer dailyStatus.mu.Unlock()
 
-	if lightSeconds > 0 {
-		dailyStatus.lightSeconds = lightSeconds
-	}
-	if waterCount >= 0 {
-		dailyStatus.waterCount = waterCount
-	}
+	dailyStatus.lightSeconds = lightSeconds
+	dailyStatus.waterCount = waterCount
 	dailyStatus.valid = true
 }
 

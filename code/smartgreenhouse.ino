@@ -1,5 +1,5 @@
 #include <ESP8266WiFi.h>
-#include <ESP8266PubSubClient.h>
+#include <PubSubClient.h>
 #include <ArduinoJson.h>
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
@@ -97,6 +97,8 @@ int moisture = 0;
 float suhu = NAN;
 float kelembapanUdara = NAN;
 bool dhtValid = false;
+float suhuKirim = 0.0;
+float rhKirim = 0.0;
 
 bool pompaOn = false;
 bool lampuOn = false;
@@ -184,12 +186,12 @@ void kirimSemuaState() {
 }
 
 void kirimSensor() {
-  if (!mqtt.connected() || !dhtValid) return;
+  if (!mqtt.connected()) return;
 
   char payload[128];
   snprintf(payload, sizeof(payload),
            "{\"temperature\":%.1f,\"humidity\":%.1f,\"soil\":%d,\"light\":%.0f}",
-           suhu, kelembapanUdara, moisture,
+           suhuKirim, rhKirim, moisture,
            ldrTerangStabil ? LUX_TERANG : LUX_GELAP);
 
   mqtt.publish(topikSensor().c_str(), payload);
@@ -277,6 +279,7 @@ void pompaSet(bool nyala, bool hitungSiram) {
 
   setRelay(RELAY_POMPA, nyala);
   kirimState("pump", nyala);
+  kirimStatusHarian();
 }
 
 void kipasSet(bool nyala) {
@@ -391,7 +394,8 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   Serial.println(pesan);
 
   if (t == topikSet("pump")) {
-    pompaSet(pesanOn(pesan), false);
+    bool on = pesanOn(pesan);
+    pompaSet(on, on && thPompa.aktif);
   } else if (t == topikSet("fan")) {
     bool on = pesanOn(pesan);
     kipasSet(on);
@@ -537,7 +541,7 @@ void urusPompa() {
   }
 }
 
-void logikaTanahOffline() {
+void logikaTanahAuto() {
   if (moisture <= thPompa.onValue && statusTanah != TANAH_KERING) {
     statusTanah = TANAH_KERING;
     Serial.println("STATUS TANAH: KERING");
@@ -576,6 +580,8 @@ void bacaDHT() {
   suhu = t;
   kelembapanUdara = h;
   dhtValid = true;
+  suhuKirim = t;
+  rhKirim = h;
 
   Serial.print("DHT11 | Suhu: ");
   Serial.print(suhu);
@@ -894,8 +900,8 @@ void loop() {
     tBacaTanah = now;
     bacaTanah();
 
-    if (!mqtt.connected()) {
-      logikaTanahOffline();
+    if (thPompa.aktif) {
+      logikaTanahAuto();
     }
   }
 

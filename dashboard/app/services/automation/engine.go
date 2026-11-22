@@ -3,6 +3,7 @@ package automation
 import (
 	"log"
 	"sync"
+	"time"
 
 	"smart-greenhouse/app/models"
 	"smart-greenhouse/config"
@@ -11,9 +12,12 @@ import (
 // Commander adalah fungsi untuk menyalakan/mematikan aktuator (diisi mqtt.SetActuator saat bootstrap).
 type Commander func(code string, on bool, source string) error
 
+const lightMinOnTime = 10 * time.Minute
+
 type Engine struct {
-	command Commander
-	mu      sync.Mutex
+	command   Commander
+	mu        sync.Mutex
+	lightOnAt time.Time
 }
 
 func NewEngine(command Commander) *Engine {
@@ -34,9 +38,28 @@ func (e *Engine) Evaluate(reading models.SensorReading) {
 			continue
 		}
 
+		// Pompa dikelola penuh oleh ESP32 (dosis 5 detik, jeda, batas harian),
+		// jadi engine tidak menimpa pompa.
+		if rule.Actuator.Code == "pump" {
+			continue
+		}
+
 		turnOn, changed := decide(rule, reading.Value(rule.Sensor), rule.Actuator.State)
 		if !changed {
 			continue
+		}
+
+		// Grow light tetap menyala minimal 10 menit setelah auto-ON.
+		// Tanpa ini LDR "kena cahaya lampunya sendiri" sehingga lampu
+		// mati-nyala berulang setiap 30 detik.
+		if rule.Actuator.Code == "light" && !turnOn {
+			if e.lightOnAt.IsZero() || time.Since(e.lightOnAt) < lightMinOnTime {
+				continue
+			}
+		}
+
+		if rule.Actuator.Code == "light" && turnOn {
+			e.lightOnAt = time.Now()
 		}
 
 		if err := e.command(rule.Actuator.Code, turnOn, "auto"); err != nil {
