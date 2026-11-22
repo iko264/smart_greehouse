@@ -50,6 +50,8 @@ func Connect() {
 	opts.SetOnConnectHandler(func(c paho.Client) {
 		log.Println("MQTT terhubung, prefix topic:", prefix)
 		subscribeAll(c)
+		PublishThresholds() // kirim threshold & mode terakhir ke ESP32 (retained)
+		PublishLimits()     // kirim target cahaya & batas siram terakhir (retained)
 		websocket.H.Broadcast("mqtt", map[string]bool{"connected": true})
 	})
 

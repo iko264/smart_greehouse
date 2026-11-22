@@ -28,6 +28,7 @@ func subscribeAll(c paho.Client) {
 	handlers := map[string]paho.MessageHandler{
 		Topic("sensors"):                 handleSensor,        // JSON dari ESP32
 		Topic("actuators", "+", "state"): handleActuatorState, // "ON"/"OFF" dari ESP32
+		Topic("status", "daily"):         handleDailyStatus,   // progres harian dari ESP32
 	}
 
 	for topic, handler := range handlers {
@@ -39,6 +40,37 @@ func subscribeAll(c paho.Client) {
 		}
 		log.Println("Subscribe:", topic)
 	}
+}
+
+// handleDailyStatus: <prefix>/status/daily
+// Contoh payload: {"light_seconds":3600,"water_count":2}
+// Progres harian (total detik cahaya & jumlah siram) diteruskan ke browser.
+func handleDailyStatus(_ paho.Client, msg paho.Message) {
+	var p struct {
+		LightSeconds *uint32 `json:"light_seconds"`
+		WaterCount   *int    `json:"water_count"`
+	}
+	if err := json.Unmarshal(msg.Payload(), &p); err != nil {
+		log.Printf("Payload status harian bukan JSON yang valid: %s", msg.Payload())
+		return
+	}
+
+	status := map[string]any{}
+	if p.LightSeconds != nil {
+		status["light_seconds"] = *p.LightSeconds
+	}
+	if p.WaterCount != nil {
+		status["water_count"] = *p.WaterCount
+	}
+	if len(status) == 0 {
+		return
+	}
+
+	lightSec, _ := status["light_seconds"].(float64)
+	waterCnt, _ := status["water_count"].(float64)
+	SetDailyStatus(uint32(lightSec), int(waterCnt))
+
+	websocket.H.Broadcast("daily", status)
 }
 
 // handleSensor: <prefix>/sensors

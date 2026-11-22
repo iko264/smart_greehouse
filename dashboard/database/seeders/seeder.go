@@ -15,6 +15,7 @@ func Run(db *gorm.DB) {
 	seedUser(db)
 	seedActuators(db)
 	seedRules(db)
+	seedSettings(db)
 }
 
 func seedUser(db *gorm.DB) {
@@ -72,5 +73,16 @@ func seedRules(db *gorm.DB) {
 		e.rule.ActuatorID = actuator.ID
 		e.rule.IsActive = true
 		db.Create(&e.rule)
+	}
+}
+
+func seedSettings(db *gorm.DB) {
+	defaults := []models.GreenhouseSetting{
+		{Key: models.KeyLightTargetHours, Value: 16},
+		{Key: models.KeyMaxWatering, Value: 6},
+	}
+
+	for _, s := range defaults {
+		db.Where("key = ?", s.Key).FirstOrCreate(&s)
 	}
 }

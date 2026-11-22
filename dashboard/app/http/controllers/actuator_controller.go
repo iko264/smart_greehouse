@@ -77,6 +77,8 @@ func (a *ActuatorController) Mode(c fiber.Ctx) error {
 	}
 	actuator.Mode = req.Mode
 
+	mqtt.PublishThresholds() // aktif/inaktifnya otomasi di ESP32 ikut mode
+
 	ws.H.Broadcast("actuator", actuator) // browser lain ikut ter-update
 	return c.JSON(fiber.Map{"message": "Mode diubah", "data": actuator})
 }

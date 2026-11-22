@@ -40,6 +40,11 @@ func Web(app *fiber.App) {
 	app.Post("/automation/:id/toggle", requireLogin, automation.Toggle)
 	app.Post("/automation/:id/delete", requireLogin, automation.Destroy)
 
+	// Pengaturan harian (cahaya & penyiraman)
+	greenhouse := controllers.NewGreenhouseController()
+	app.Get("/greenhouse/limits", requireLogin, greenhouse.LimitsPage)
+	app.Post("/greenhouse/limits", requireLogin, greenhouse.Limits)
+
 	// WebSocket: browser menerima data sensor & status aktuator secara real-time
 	app.Use("/ws", requireLogin, func(c fiber.Ctx) error {
 		if fiberws.IsWebSocketUpgrade(c) {

@@ -5,6 +5,7 @@ import (
 
 	"smart-greenhouse/app/http/requests"
 	"smart-greenhouse/app/models"
+	"smart-greenhouse/app/services/mqtt"
 	"smart-greenhouse/app/support"
 	"smart-greenhouse/config"
 )
@@ -80,6 +81,8 @@ func (a *AutomationController) Store(c fiber.Ctx) error {
 		return err
 	}
 
+	mqtt.PublishThresholds() // ESP32 langsung menerima threshold baru
+
 	support.Flash(c, "success", "Aturan otomasi ditambahkan.")
 	return c.Redirect().To("/automation")
 }
@@ -98,6 +101,8 @@ func (a *AutomationController) Toggle(c fiber.Ctx) error {
 
 	config.DB.Model(&rule).Update("is_active", !rule.IsActive)
 
+	mqtt.PublishThresholds() // sinkronkan ESP32
+
 	support.Flash(c, "success", "Status aturan diperbarui.")
 	return c.Redirect().To("/automation")
 }
@@ -109,6 +114,8 @@ func (a *AutomationController) Destroy(c fiber.Ctx) error {
 	}
 
 	config.DB.Delete(&models.AutomationRule{}, id)
+
+	mqtt.PublishThresholds() // sinkronkan ESP32
 
 	support.Flash(c, "success", "Aturan dihapus.")
 	return c.Redirect().To("/automation")

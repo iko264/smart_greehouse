@@ -245,6 +245,80 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Widget Manajemen Cahaya & Penyiraman Harian
+  // ---------------------------------------------------------------------------
+  const daily = { lightSeconds: 0, waterCount: 0, lightTarget: 16, maxWatering: 6 };
+
+  function fmtJam(detik) {
+    return (detik / 3600).toFixed(1);
+  }
+
+  function renderDaily() {
+    const lightHours = fmtJam(daily.lightSeconds);
+    const lightPct = Math.min(100, (daily.lightSeconds / (daily.lightTarget * 3600)) * 100);
+    const waterPct = Math.min(100, (daily.waterCount / daily.maxWatering) * 100);
+
+    $('#light-hours').textContent = lightHours;
+    $('#light-target-label').textContent = daily.lightTarget;
+    $('#light-progress').style.width = `${lightPct}%`;
+
+    $('#water-count').textContent = daily.waterCount;
+    $('#water-max-label').textContent = daily.maxWatering;
+    $('#water-progress').style.width = `${waterPct}%`;
+
+    $('#light-target-input').value = daily.lightTarget;
+    $('#max-water-input').value = daily.maxWatering;
+  }
+
+  function applyDaily(d) {
+    if (typeof d.light_seconds === 'number') daily.lightSeconds = d.light_seconds;
+    if (typeof d.water_count === 'number') daily.waterCount = d.water_count;
+    if (typeof d.light_target_hours === 'number') daily.lightTarget = d.light_target_hours;
+    if (typeof d.max_watering_per_day === 'number') daily.maxWatering = d.max_watering_per_day;
+    renderDaily();
+  }
+
+  async function loadDaily() {
+    try {
+      const [dailyRes, limitsRes] = await Promise.all([
+        fetch('/api/greenhouse/daily', { credentials: 'same-origin' }),
+        fetch('/api/greenhouse/limits', { credentials: 'same-origin' }),
+      ]);
+      const dailyJson = await dailyRes.json();
+      const limitsJson = await limitsRes.json();
+      applyDaily({ ...dailyJson.data, ...limitsJson.data });
+    } catch (err) {
+      /* biarkan nilai default tampil */
+    }
+  }
+
+  document.getElementById('limits-form')?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const form = event.target;
+    const btn = $('#limits-save');
+    const lightTarget = Number($('#light-target-input').value);
+    const maxWater = Number($('#max-water-input').value);
+
+    if (!(lightTarget >= 1 && lightTarget <= 24) || !(maxWater >= 1 && maxWater <= 50)) {
+      toast('Target cahaya 1-24 jam, batas siram 1-50x', 'danger');
+      return;
+    }
+
+    btn.disabled = true;
+    try {
+      const res = await postForm('/greenhouse/limits', {
+        light_target_hours: lightTarget,
+        max_watering_per_day: maxWater,
+      });
+      applyDaily(res.data);
+      toast(res.message || 'Pengaturan tersimpan');
+    } catch (err) {
+      toast(err.message, 'danger');
+    }
+    btn.disabled = false;
+  });
+
+  // ---------------------------------------------------------------------------
   // WebSocket (otomatis menyambung ulang kalau putus)
   // ---------------------------------------------------------------------------
   let retry = 0;
@@ -260,6 +334,7 @@
       if (msg.event === 'sensor') onSensor(msg.data);
       else if (msg.event === 'actuator') onActuator(msg.data);
       else if (msg.event === 'mqtt') renderMqttStatus(msg.data.connected);
+      else if (msg.event === 'daily') applyDaily(msg.data);
     };
 
     socket.onclose = () => {
@@ -317,6 +392,7 @@
     if ($('#range-select')) maxPoints = Number($('#range-select').value);
 
     loadHistory();
+    loadDaily();
     connectSocket();
 
     // Status perangkat: ambil waktu data terakhir, lalu cek ulang tiap 5 detik

@@ -35,6 +35,72 @@
 </div>
 
 <div class="row g-3 mb-3">
+  <!-- Card Cahaya Harian -->
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-sun me-1 text-warning"></i>Manajemen Cahaya Harian</span>
+        <span class="badge text-bg-light border" id="daily-reset-info">Auto-reset 00:00 WIB</span>
+      </div>
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <div>
+            <span class="display-6 fw-semibold" id="light-hours">-</span>
+            <span class="text-muted">/ <span id="light-target-label">16</span> jam</span>
+          </div>
+          <i class="bi bi-brightness-high fs-1 text-warning opacity-25"></i>
+        </div>
+        <div class="progress mb-2" style="height: 10px;">
+          <div class="progress-bar bg-warning" id="light-progress" role="progressbar" style="width: 0%;"></div>
+        </div>
+        <div class="small text-muted mb-3">Jam aktif grow light: <b>06:00&ndash;22:00 WIB</b></div>
+        <form id="limits-form" class="row g-2 align-items-end">
+          <div class="col-auto flex-grow-1">
+            <label class="form-label small mb-1" for="light-target-input">Target jam cahaya harian</label>
+            <input type="number" class="form-control" id="light-target-input" name="light_target_hours"
+                   min="1" max="24" step="0.5" value="16" required>
+          </div>
+          <div class="col-auto">
+            <label class="form-label small mb-1" for="max-water-input">Batas siram / hari</label>
+            <input type="number" class="form-control" id="max-water-input" name="max_watering_per_day"
+                   min="1" max="50" step="1" value="6" required>
+          </div>
+          <div class="col-auto">
+            <button type="submit" class="btn btn-success" id="limits-save">Save Settings</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Card Batas Penyiraman -->
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-droplet-half me-1 text-primary"></i>Batas Penyiraman Harian</span>
+        <span class="badge text-bg-light border" id="water-date">hari ini</span>
+      </div>
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <div>
+            <span class="display-6 fw-semibold" id="water-count">-</span>
+            <span class="text-muted">/ <span id="water-max-label">6</span> x siram</span>
+          </div>
+          <i class="bi bi-moisture fs-1 text-primary opacity-25"></i>
+        </div>
+        <div class="progress mb-3" style="height: 10px;">
+          <div class="progress-bar bg-primary" id="water-progress" role="progressbar" style="width: 0%;"></div>
+        </div>
+        <div class="small text-muted">
+          Counter dari perangkat (total siram otomatis hari ini). Ubah target cahaya dan batas siram
+          pada form di atas, lalu klik <b>Save Settings</b> untuk mengirim ke ESP8266.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
   <!-- Grafik -->
   <div class="col-lg-8">
     <div class="card h-100">
