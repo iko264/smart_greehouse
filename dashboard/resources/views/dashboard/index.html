@@ -35,12 +35,12 @@
 </div>
 
 <div class="row g-3 mb-3">
-  <!-- Card Cahaya Harian -->
+  <!-- Widget Manajemen Cahaya & Penyiraman Harian -->
   <div class="col-lg-6">
     <div class="card h-100">
       <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center">
         <span><i class="bi bi-sun me-1 text-warning"></i>Manajemen Cahaya Harian</span>
-        <span class="badge text-bg-light border" id="daily-reset-info">Auto-reset 00:00 WIB</span>
+        <span class="badge text-bg-light border">Auto-reset 00:00 WIB</span>
       </div>
       <div class="card-body">
         <div class="d-flex justify-content-between align-items-center mb-2">
@@ -54,6 +54,7 @@
           <div class="progress-bar bg-warning" id="light-progress" role="progressbar" style="width: 0%;"></div>
         </div>
         <div class="small text-muted mb-3">Jam aktif grow light: <b>06:00&ndash;22:00 WIB</b></div>
+
         <form id="limits-form" class="row g-2 align-items-end">
           <div class="col-auto flex-grow-1">
             <label class="form-label small mb-1" for="light-target-input">Target jam cahaya harian</label>
@@ -78,7 +79,7 @@
     <div class="card h-100">
       <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center">
         <span><i class="bi bi-droplet-half me-1 text-primary"></i>Batas Penyiraman Harian</span>
-        <span class="badge text-bg-light border" id="water-date">hari ini</span>
+        <span class="badge text-bg-light border">hari ini</span>
       </div>
       <div class="card-body">
         <div class="d-flex justify-content-between align-items-center mb-2">
@@ -92,8 +93,7 @@
           <div class="progress-bar bg-primary" id="water-progress" role="progressbar" style="width: 0%;"></div>
         </div>
         <div class="small text-muted">
-          Counter dari perangkat (total siram otomatis hari ini). Ubah target cahaya dan batas siram
-          pada form di atas, lalu klik <b>Save Settings</b> untuk mengirim ke ESP8266.
+          Counter total siram otomatis hari ini
         </div>
       </div>
     </div>

@@ -1,9 +1,5 @@
 <div class="mb-4">
   <h1 class="h4 mb-0">Otomasi</h1>
-  <div class="text-muted small">
-    Aturan dengan <b>histeresis</b> (dua batas) supaya aktuator tidak nyala-mati terus di sekitar satu nilai.
-    Aturan hanya bekerja jika aktuatornya diset ke mode <b>Otomatis</b>.
-  </div>
 </div>
 
 <div class="row g-3">
@@ -88,8 +84,8 @@
           <div class="mb-3">
             <label for="direction" class="form-label">Kondisi</label>
             <select id="direction" name="direction" class="form-select {{if .errors.direction}}is-invalid{{end}}">
-              <option value="above" {{if eq .old.Direction "above"}}selected{{end}}>Nyala jika nilai TINGGI (contoh: suhu panas → kipas)</option>
-              <option value="below" {{if eq .old.Direction "below"}}selected{{end}}>Nyala jika nilai RENDAH (contoh: tanah kering → pompa)</option>
+              <option value="above" {{if eq .old.Direction "above"}}selected{{end}}>Nyala jika nilai TINGGI</option>
+              <option value="below" {{if eq .old.Direction "below"}}selected{{end}}>Nyala jika nilai RENDAH </option>
             </select>
             {{if .errors.direction}}<div class="invalid-feedback">{{.errors.direction}}</div>{{end}}
           </div>
@@ -107,11 +103,6 @@
             </div>
             {{if .errors.on_value}}<div class="col-12"><div class="text-danger small">{{.errors.on_value}}</div></div>{{end}}
             {{if .errors.off_value}}<div class="col-12"><div class="text-danger small">{{.errors.off_value}}</div></div>{{end}}
-          </div>
-
-          <div class="form-text mb-3">
-            Contoh kipas: sensor Suhu, kondisi TINGGI, nyala 30, mati 28.<br>
-            Contoh pompa: sensor Tanah, kondisi RENDAH, nyala 40, mati 60.
           </div>
 
           <button type="submit" class="btn btn-success w-100">Simpan Aturan</button>
