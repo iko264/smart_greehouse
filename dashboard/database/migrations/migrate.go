@@ -17,6 +17,7 @@ func Run(db *gorm.DB) {
 		&models.ActuatorLog{},
 		&models.AutomationRule{},
 		&models.GreenhouseSetting{},
+		&models.DailySummary{},
 	)
 	if err != nil {
 		log.Fatalf("Migrasi gagal: %v", err)

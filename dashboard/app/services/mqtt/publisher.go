@@ -92,7 +92,7 @@ func PublishThresholds() {
 // settingValue membaca satu pengaturan dari tabel greenhouse_settings.
 func settingValue(key string, fallback float64) float64 {
 	var s models.GreenhouseSetting
-	if err := config.DB.Where("key = ?", key).First(&s).Error; err != nil {
+	if err := config.DB.Where(map[string]any{"key": key}).First(&s).Error; err != nil {
 		return fallback
 	}
 	return s.Value
@@ -141,13 +141,20 @@ var dailyStatus struct {
 }
 
 // SetDailyStatus menyimpan progres harian yang baru masuk dari topic status/daily.
-func SetDailyStatus(lightSeconds uint32, waterCount int) {
+// Field yang nil tidak diubah, lalu nilai gabungan dikembalikan.
+func SetDailyStatus(lightSeconds *uint32, waterCount *int) (uint32, int) {
 	dailyStatus.mu.Lock()
 	defer dailyStatus.mu.Unlock()
 
-	dailyStatus.lightSeconds = lightSeconds
-	dailyStatus.waterCount = waterCount
+	if lightSeconds != nil {
+		dailyStatus.lightSeconds = *lightSeconds
+	}
+	if waterCount != nil {
+		dailyStatus.waterCount = *waterCount
+	}
 	dailyStatus.valid = true
+
+	return dailyStatus.lightSeconds, dailyStatus.waterCount
 }
 
 // GetDailyStatus mengembalikan progres harian terakhir (nilainya 0 jika belum ada data).

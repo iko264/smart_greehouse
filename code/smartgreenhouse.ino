@@ -8,7 +8,7 @@
 #include <time.h>
 
 const char* WIFI_SSID = "";
-const char* WIFI_PASS = "";
+const char* WIFI_PASS = "32478044";
 
 const char* MQTT_HOST   = "broker.hivemq.com";
 const int   MQTT_PORT   = 1883;
@@ -42,26 +42,25 @@ const unsigned long JEDA_SIRAM_MS   = 30UL * 1000UL;
 const bool TES_POMPA_SAAT_BOOT = false;
 
 const float KIPAS_TURUN_MIN = 1.0;
-const unsigned long KIPAS2_TUNGGU_MS = 10UL * 60UL * 1000UL;
-const unsigned long KIPAS_CEK_PERCUMA_MS = 15UL * 60UL * 1000UL;
-const unsigned long KIPAS_ISTIRAHAT_MS   = 10UL * 60UL * 1000UL;
+const unsigned long KIPAS2_TUNGGU_MS     = 30UL * 1000UL; // 30 detik sebelum kipas 2 menyala
+const unsigned long KIPAS_CEK_PERCUMA_MS = 30UL * 1000UL;
 
 const unsigned long JAM_LAMPU_MULAI   = 6;
 const unsigned long JAM_LAMPU_SELESAI = 22;
-const unsigned long KONFIRMASI_LDR_MS = 30000UL;
-const unsigned long MIN_LAMPU_NYALA_MS = 10UL * 60UL * 1000UL;
+const unsigned long KONFIRMASI_LDR_MS  = 10000UL;       // 10 detik debounce (gelap & terang)
+const unsigned long MIN_LAMPU_NYALA_MS = 10UL * 1000UL;
 
 unsigned long targetLightDuration = 16UL * 3600UL;
 int maksSiramHariIni = 6;
 
-const unsigned long INTERVAL_BACA_TANAH  = 2000UL;
-const unsigned long INTERVAL_DHT         = 2000UL;
-const unsigned long INTERVAL_LCD         = 1000UL;
-const unsigned long INTERVAL_WIFI        = 15000UL;
-const unsigned long INTERVAL_MQTT_COBA   = 5000UL;
+const unsigned long INTERVAL_BACA_TANAH   = 2000UL;
+const unsigned long INTERVAL_DHT          = 2000UL;
+const unsigned long INTERVAL_LCD          = 1000UL;
+const unsigned long INTERVAL_WIFI         = 15000UL;
+const unsigned long INTERVAL_MQTT_COBA    = 5000UL;
 const unsigned long INTERVAL_KIRIM_SENSOR = 5000UL;
 const unsigned long INTERVAL_KIRIM_HARIAN = 30000UL;
-const unsigned long INTERVAL_SIMPan = 30UL * 60UL * 1000UL;
+const unsigned long INTERVAL_SIMPAN       = 30UL * 1000UL;
 
 struct Threshold {
   bool  aktif;
@@ -69,9 +68,10 @@ struct Threshold {
   float offValue;
 };
 
-Threshold thPompa = { false, 30.0, 45.0 };
-Threshold thKipas = { false, 32.0, 30.0 };
-Threshold thLampu = { false, 300.0, 500.0 };
+// Default aktif = true agar saat boot offline otomatisasi langsung bekerja
+Threshold thPompa = { true, 30.0, 45.0 };
+Threshold thKipas = { true, 32.0, 30.0 };
+Threshold thLampu = { true, 300.0, 500.0 };
 
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 DHT dht(DHT_PIN, DHT_TIPE);
@@ -97,6 +97,8 @@ int moisture = 0;
 float suhu = NAN;
 float kelembapanUdara = NAN;
 bool dhtValid = false;
+int dhtGagalCount = 0;
+const int MAX_DHT_GAGAL = 5; // Toleransi 5x gagal baca (10 detik) akibat noise relay
 float suhuKirim = 0.0;
 float rhKirim = 0.0;
 
@@ -106,9 +108,8 @@ bool kipasOn = false;
 bool kipas2On = false;
 bool pompaAutoSiram = false;
 
-unsigned long tKipasMulai = 0, tKipas2Mulai = 0;
-unsigned long tIstirahatKipas = 0;
-float suhuAwalKipas = NAN, suhuAwalKipas2 = NAN;
+unsigned long tKipasMulai = 0;
+float suhuAwalKipas = NAN;
 
 unsigned long tPompa = 0;
 unsigned long tSelesaiSiram = 0;
@@ -208,6 +209,10 @@ void kirimStatusHarian() {
   mqtt.publish(topikStatusHarian().c_str(), payload);
 }
 
+bool wifiOk() {
+  return WiFi.status() == WL_CONNECTED;
+}
+
 void sambungkanMqtt() {
   String clientId = "greenhouse-" + String(ESP.getChipId(), HEX);
 
@@ -253,6 +258,20 @@ bool pesanOn(const String& pesan) {
   return (p == "ON" || p == "1" || p == "TRUE");
 }
 
+void simpanData() {
+  DataSimpan data;
+  data.magic = MAGIC_DATA;
+  data.kunciHari = kunciHariTercatat;
+  data.totalCahaya = totalLightDuration;
+  data.jumlahSiram = jumlahSiramHariIni;
+
+  EEPROM.put(0, data);
+  EEPROM.commit();
+
+  totalTerakhirDisimpan = totalLightDuration;
+  siramTerakhirDisimpan = jumlahSiramHariIni;
+}
+
 void pompaSet(bool nyala, bool hitungSiram) {
   if (nyala == pompaOn) return;
 
@@ -265,7 +284,7 @@ void pompaSet(bool nyala, bool hitungSiram) {
     if (hitungSiram) {
       jumlahSiramHariIni++;
       simpanData();
-      Serial.print("POMPA OTOMATIS (OFFLINE) ON - siram ke-");
+      Serial.print("POMPA OTOMATIS ON - siram ke-");
       Serial.println(jumlahSiramHariIni);
     } else {
       Serial.println("POMPA ON (perintah dashboard)");
@@ -282,17 +301,6 @@ void pompaSet(bool nyala, bool hitungSiram) {
   kirimStatusHarian();
 }
 
-void kipasSet(bool nyala) {
-  if (nyala == kipasOn) return;
-
-  kipasOn = nyala;
-  setRelay(RELAY_KIPAS, nyala);
-  kirimState("fan", nyala);
-
-  Serial.print("KIPAS 1 ");
-  Serial.println(stateText(nyala));
-}
-
 void kipas2Set(bool nyala) {
   if (nyala == kipas2On) return;
 
@@ -300,6 +308,24 @@ void kipas2Set(bool nyala) {
   setRelay(RELAY_KIPAS2, nyala);
 
   Serial.print("KIPAS 2 ");
+  Serial.println(stateText(nyala));
+}
+
+void kipasSet(bool nyala) {
+  if (nyala == kipasOn) return;
+
+  kipasOn = nyala;
+  setRelay(RELAY_KIPAS, nyala);
+  kirimState("fan", nyala);
+
+  if (nyala) {
+    tKipasMulai = millis();
+    suhuAwalKipas = suhu;
+  } else {
+    kipas2Set(false);
+  }
+
+  Serial.print("KIPAS 1 ");
   Serial.println(stateText(nyala));
 }
 
@@ -329,30 +355,30 @@ void terimaThreshold(const String& payload) {
 
   JsonObject p = doc["pump"];
   if (!p.isNull()) {
-    thPompa.aktif    = p["active"] | false;
+    thPompa.aktif    = p["active"] | thPompa.aktif;
     thPompa.onValue  = p["on_value"] | thPompa.onValue;
     thPompa.offValue = p["off_value"] | thPompa.offValue;
   }
 
   JsonObject f = doc["fan"];
   if (!f.isNull()) {
-    thKipas.aktif    = f["active"] | false;
+    thKipas.aktif    = f["active"] | thKipas.aktif;
     thKipas.onValue  = f["on_value"] | thKipas.onValue;
     thKipas.offValue = f["off_value"] | thKipas.offValue;
   }
 
   JsonObject l = doc["light"];
   if (!l.isNull()) {
-    thLampu.aktif    = l["active"] | false;
+    thLampu.aktif    = l["active"] | thLampu.aktif;
     thLampu.onValue  = l["on_value"] | thLampu.onValue;
     thLampu.offValue = l["off_value"] | thLampu.offValue;
   }
 
-  Serial.print("Threshold diterima | P: ");
+  Serial.print("Threshold diterima | P("); Serial.print(thPompa.aktif); Serial.print("): ");
   Serial.print(thPompa.onValue); Serial.print("/"); Serial.print(thPompa.offValue);
-  Serial.print(" | F: ");
+  Serial.print(" | F("); Serial.print(thKipas.aktif); Serial.print("): ");
   Serial.print(thKipas.onValue); Serial.print("/"); Serial.print(thKipas.offValue);
-  Serial.print(" | L: ");
+  Serial.print(" | L("); Serial.print(thLampu.aktif); Serial.print("): ");
   Serial.print(thLampu.onValue); Serial.print("/"); Serial.println(thLampu.offValue);
 }
 
@@ -395,22 +421,20 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
 
   if (t == topikSet("pump")) {
     bool on = pesanOn(pesan);
-    pompaSet(on, on && thPompa.aktif);
+    thPompa.aktif = false; // Pindah ke manual saat dikontrol dari Go agar tidak bentrok
+    pompaSet(on, false);
   } else if (t == topikSet("fan")) {
     bool on = pesanOn(pesan);
+    thKipas.aktif = false; // Pindah ke manual saat dikontrol dari Go agar tidak bentrok
     kipasSet(on);
-    if (!on) kipas2Set(false);
   } else if (t == topikSet("light")) {
+    thLampu.aktif = false; // Pindah ke manual saat dikontrol dari Go agar tidak bentrok
     lampuSet(pesanOn(pesan), "perintah dashboard");
   } else if (t == topikThreshold()) {
     terimaThreshold(pesan);
   } else if (t == topikLimits()) {
     terimaLimits(pesan);
   }
-}
-
-bool wifiOk() {
-  return WiFi.status() == WL_CONNECTED;
 }
 
 void jagaWiFi() {
@@ -433,32 +457,6 @@ bool ambilWaktu(int &jam, int &kunci) {
   jam = waktu.tm_hour;
   kunci = (waktu.tm_year + 1900) * 1000 + waktu.tm_yday;
   return true;
-}
-
-String jamSekarang() {
-  time_t now = time(nullptr);
-  if (now < 100000) return "--:--";
-
-  struct tm waktu;
-  localtime_r(&now, &waktu);
-
-  char buffer[6];
-  sprintf(buffer, "%02d:%02d", waktu.tm_hour, waktu.tm_min);
-  return String(buffer);
-}
-
-void simpanData() {
-  DataSimpan data;
-  data.magic = MAGIC_DATA;
-  data.kunciHari = kunciHariTercatat;
-  data.totalCahaya = totalLightDuration;
-  data.jumlahSiram = jumlahSiramHariIni;
-
-  EEPROM.put(0, data);
-  EEPROM.commit();
-
-  totalTerakhirDisimpan = totalLightDuration;
-  siramTerakhirDisimpan = jumlahSiramHariIni;
 }
 
 void muatData() {
@@ -520,17 +518,13 @@ void bacaTanah() {
   Serial.print(suhu);
   Serial.print(" | RH: ");
   Serial.print(kelembapanUdara);
-  Serial.print(" | LDR raw: ");
-  Serial.print(digitalRead(LDR_DO));
   Serial.print(" | LDR: ");
   Serial.print(ldrTerangStabil ? "TERANG" : "GELAP");
-  Serial.print(" | Status tanah: ");
-  Serial.print(statusTanah == TANAH_KERING ? "KERING" : "AMAN");
-  Serial.print(" | Siram: ");
-  Serial.print(jumlahSiramHariIni);
-  Serial.print("/");
-  Serial.print(maksSiramHariIni);
-  Serial.print(" | Pompa: ");
+  Serial.print(" | K1:");
+  Serial.print(stateText(kipasOn));
+  Serial.print(" K2:");
+  Serial.print(stateText(kipas2On));
+  Serial.print(" | Pompa:");
   Serial.println(stateText(pompaOn));
 }
 
@@ -561,7 +555,7 @@ void logikaTanahAuto() {
       if (jumlahSiramHariIni < maksSiramHariIni) {
         pompaSet(true, true);
       } else {
-        Serial.println("BATAS SIRAM HARIAN TERCAPAI. Periksa air/pompa/sensor.");
+        Serial.println("BATAS SIRAM HARIAN TERCAPAI.");
       }
     }
   }
@@ -572,16 +566,27 @@ void bacaDHT() {
   float t = dht.readTemperature();
 
   if (isnan(h) || isnan(t)) {
-    dhtValid = false;
-    Serial.println("Gagal membaca DHT11. Periksa kabel DATA D3.");
+    dhtGagalCount++;
+    Serial.print("Gagal baca DHT11 (");
+    Serial.print(dhtGagalCount);
+    Serial.println("x) - tahan data suhu terakhir.");
+
+    if (dhtGagalCount >= MAX_DHT_GAGAL) {
+      dhtValid = false;
+    }
     return;
   }
 
+  dhtGagalCount = 0;
   suhu = t;
   kelembapanUdara = h;
   dhtValid = true;
   suhuKirim = t;
   rhKirim = h;
+
+  if (kipasOn && isnan(suhuAwalKipas)) {
+    suhuAwalKipas = suhu;
+  }
 
   Serial.print("DHT11 | Suhu: ");
   Serial.print(suhu);
@@ -590,13 +595,8 @@ void bacaDHT() {
   Serial.println(" %");
 }
 
-bool kipasIstirahat() {
-  return (tIstirahatKipas != 0) &&
-         (millis() - tIstirahatKipas < KIPAS_ISTIRAHAT_MS);
-}
-
-void logikaKipasOffline() {
-  if (!dhtValid || kipasIstirahat()) {
+void logikaKipasAuto() {
+  if (!dhtValid) {
     kipasSet(false);
     return;
   }
@@ -605,52 +605,32 @@ void logikaKipasOffline() {
     ? (suhu > thKipas.offValue)
     : (suhu >= thKipas.onValue);
 
-  if (minta && !kipasOn) {
-    tKipasMulai = millis();
-    suhuAwalKipas = suhu;
-  }
-
   kipasSet(minta);
 }
 
-void logikaKipas2Offline() {
-  if (!dhtValid || !kipasOn || kipasIstirahat()) {
+void logikaKipas2Auto() {
+  // Jika DHT error total atau Kipas 1 mati, matikan Kipas 2
+  if (!dhtValid || !kipasOn) {
     kipas2Set(false);
     return;
   }
 
-  bool minta = false;
-
   if (!kipas2On) {
-    if (millis() - tKipasMulai >= KIPAS2_TUNGGU_MS) {
+    unsigned long durasiKipas1 = millis() - tKipasMulai;
+
+    if (durasiKipas1 >= KIPAS2_TUNGGU_MS) {
       if (suhu > suhuAwalKipas - KIPAS_TURUN_MIN) {
-        minta = true;
+        Serial.println("Suhu belum turun >= 1C setelah 30 detik -> Menyalakan Kipas 2");
+        kipas2Set(true);
       } else {
+        // Suhu berhasil turun >= 1C, perbarui suhu patokan & reset timer 30 detik berikutnya
         tKipasMulai = millis();
         suhuAwalKipas = suhu;
       }
     }
-  } else {
-    minta = true;
-
-    if (millis() - tKipas2Mulai >= KIPAS_CEK_PERCUMA_MS) {
-      if (suhu > suhuAwalKipas2 - KIPAS_TURUN_MIN) {
-        minta = false;
-        tIstirahatKipas = millis();
-        Serial.println("Kipas 1 dan 2 tidak efektif (suhu tidak turun) - istirahat 10 menit.");
-      } else {
-        tKipas2Mulai = millis();
-        suhuAwalKipas2 = suhu;
-      }
-    }
   }
-
-  if (minta && !kipas2On) {
-    tKipas2Mulai = millis();
-    suhuAwalKipas2 = suhu;
-  }
-
-  kipas2Set(minta);
+  // Jika Kipas 2 sudah menyala, biarkan tetap menyala membantu Kipas 1
+  // sampai Kipas 1 mati (baik karena suhu tercapai maupun dimatikan manual dari dashboard)
 }
 
 void bacaLDR() {
@@ -670,9 +650,9 @@ void bacaLDR() {
   }
 }
 
-void logikaLampuOffline() {
+void logikaLampuAuto() {
   bool minta = false;
-  const char* alasan = "otomatis offline";
+  const char* alasan = "otomatis";
 
   int jam, kunci;
   bool waktuValid = ambilWaktu(jam, kunci);
@@ -697,7 +677,7 @@ void logikaLampuOffline() {
       alasan = minta ? "LDR mendeteksi gelap" : "LDR mendeteksi terang";
     } else if (millis() - tLampuNyala < MIN_LAMPU_NYALA_MS) {
       minta = true;
-      alasan = "durasi minimum 10 menit";
+      alasan = "durasi minimum 10 detik";
     } else {
       minta = !ldrTerangStabil;
       alasan = minta ? "LDR mendeteksi gelap" : "LDR mendeteksi terang";
@@ -714,11 +694,18 @@ void tickDetik() {
     totalLightDuration++;
   }
 
-  if (!mqtt.connected()) {
-    logikaLampuOffline();
-    logikaKipasOffline();
-    logikaKipas2Offline();
+  bool isOffline = !mqtt.connected();
+
+  if (thLampu.aktif || isOffline) {
+    logikaLampuAuto();
   }
+
+  if (thKipas.aktif || isOffline) {
+    logikaKipasAuto();
+  }
+
+  // Kipas 2 selalu memantau jika Kipas 1 menyala (baik mode auto maupun manual)
+  logikaKipas2Auto();
 }
 
 void lcdBaris(int baris, String teks) {
@@ -900,7 +887,7 @@ void loop() {
     tBacaTanah = now;
     bacaTanah();
 
-    if (thPompa.aktif) {
+    if (thPompa.aktif || !mqtt.connected()) {
       logikaTanahAuto();
     }
   }
@@ -920,7 +907,7 @@ void loop() {
     tampilLcd();
   }
 
-  if (now - tSimpan >= INTERVAL_SIMPan) {
+  if (now - tSimpan >= INTERVAL_SIMPAN) {
     tSimpan = now;
 
     if (totalLightDuration != totalTerakhirDisimpan ||

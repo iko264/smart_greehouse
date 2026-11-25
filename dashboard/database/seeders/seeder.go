@@ -83,6 +83,6 @@ func seedSettings(db *gorm.DB) {
 	}
 
 	for _, s := range defaults {
-		db.Where("key = ?", s.Key).FirstOrCreate(&s)
+		db.Where(map[string]any{"key": s.Key}).FirstOrCreate(&s)
 	}
 }

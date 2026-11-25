@@ -38,12 +38,18 @@ func (s *SensorController) History(c fiber.Ctx) error {
 	data := fiber.Map{"title": "Riwayat"}
 	var total int64
 
-	if tab == "actuator" {
+	switch tab {
+	case "actuator":
 		var logs []models.ActuatorLog
 		config.DB.Model(&models.ActuatorLog{}).Count(&total)
 		config.DB.Preload("Actuator").Order("id desc").Limit(perPage).Offset(offset).Find(&logs)
 		data["logs"] = logs
-	} else {
+	case "daily":
+		var summaries []models.DailySummary
+		config.DB.Model(&models.DailySummary{}).Count(&total)
+		config.DB.Order("date desc").Limit(perPage).Offset(offset).Find(&summaries)
+		data["dailySummaries"] = summaries
+	default:
 		tab = "sensor"
 		var readings []models.SensorReading
 		config.DB.Model(&models.SensorReading{}).Count(&total)

@@ -19,7 +19,7 @@ func NewGreenhouseController() *GreenhouseController {
 // LimitsPage menampilkan halaman "Pengaturan Harian" (card cahaya & penyiraman).
 func (g *GreenhouseController) LimitsPage(c fiber.Ctx) error {
 	return support.View(c, "greenhouse/limits", fiber.Map{
-		"title": "Manajemen Cahaya & Penyiraman",
+		"title":            "Manajemen Cahaya & Penyiraman",
 		"lightTargetHours": mqtt.GetLightTargetHours(),
 		"maxWatering":      int(mqtt.GetMaxWatering()),
 	})
@@ -48,7 +48,7 @@ func (g *GreenhouseController) Limits(c fiber.Ctx) error {
 
 	for _, u := range updates {
 		var s models.GreenhouseSetting
-		if err := config.DB.Where("key = ?", u.Key).First(&s).Error; err != nil {
+		if err := config.DB.Where(map[string]any{"key": u.Key}).First(&s).Error; err != nil {
 			if err := config.DB.Create(&models.GreenhouseSetting{Key: u.Key, Value: u.Value}).Error; err != nil {
 				return support.JSONError(c, fiber.StatusInternalServerError, "Gagal menyimpan pengaturan")
 			}
@@ -59,7 +59,8 @@ func (g *GreenhouseController) Limits(c fiber.Ctx) error {
 		}
 	}
 
-	mqtt.PublishLimits() // kirim nilai baru ke ESP8266 (retained)
+	mqtt.RefreshDailySummary() // perbarui rekap hari ini dengan limit baru
+	mqtt.PublishLimits()       // kirim nilai baru ke ESP8266 (retained)
 
 	return c.JSON(fiber.Map{
 		"message": "Pengaturan tersimpan dan dikirim ke perangkat",

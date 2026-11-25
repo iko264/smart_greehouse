@@ -66,9 +66,8 @@ func handleDailyStatus(_ paho.Client, msg paho.Message) {
 		return
 	}
 
-	lightSec, _ := status["light_seconds"].(float64)
-	waterCnt, _ := status["water_count"].(float64)
-	SetDailyStatus(uint32(lightSec), int(waterCnt))
+	lightSec, waterCnt := SetDailyStatus(p.LightSeconds, p.WaterCount)
+	SaveDailySummary(lightSec, waterCnt)
 
 	websocket.H.Broadcast("daily", status)
 }
